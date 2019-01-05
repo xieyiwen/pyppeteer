@@ -22,6 +22,7 @@ from pyppeteer.dialog import Dialog
 from pyppeteer.element_handle import ElementHandle
 from pyppeteer.emulation_manager import EmulationManager
 from pyppeteer.errors import PageError
+from pyppeteer.errors import TimeoutError as pyTimeoutError
 from pyppeteer.execution_context import JSHandle  # noqa: F401
 from pyppeteer.frame_manager import Frame  # noqa: F401
 from pyppeteer.frame_manager import FrameManager
@@ -467,7 +468,7 @@ class Page(EventEmitter):
         * ``sameSite`` (str): ``'Strict'`` or ``'Lax'``
         """
         if not urls:
-            urls = (self.url, )
+            urls = (self.url,)
         resp = await self._client.send('Network.getCookies', {
             'urls': urls,
         })
@@ -859,7 +860,8 @@ function addPageBinding(bindingName) {
         helper.removeEventListeners(eventListeners)
         error = result[0].pop().exception()  # type: ignore
         if error:
-            raise error
+            if not isinstance(error, pyTimeoutError):
+                raise error
 
         request = requests.get(mainFrame._navigationURL)
         return request.response if request else None
@@ -1690,7 +1692,6 @@ supportedMetrics = (
     'JSHeapUsedSize',
     'JSHeapTotalSize',
 )
-
 
 unitToPixels = {
     'px': 1,
