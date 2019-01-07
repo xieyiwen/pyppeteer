@@ -87,7 +87,7 @@ class Page(EventEmitter):
 
     @staticmethod
     async def create(client: CDPSession, target: 'Target',
-                     ignoreHTTPSErrors: bool, setDefaultViewport: bool,
+                     ignoreHTTPSErrors: bool, defaultViewport: Optional[Dict],
                      screenshotTaskQueue: list = None) -> 'Page':
         """Async function which makes new page object."""
         await client.send('Page.enable'),
@@ -107,8 +107,8 @@ class Page(EventEmitter):
         if ignoreHTTPSErrors:
             await client.send('Security.setOverrideCertificateErrors',
                               {'override': True})
-        if setDefaultViewport:
-            await page.setViewport({'width': 800, 'height': 600})
+        if defaultViewport:
+            await page.setViewport(defaultViewport)
         return page
 
     def __init__(self, client: CDPSession, target: 'Target',  # noqa: C901
@@ -128,7 +128,9 @@ class Page(EventEmitter):
         self._pageBindings: Dict[str, Callable[..., Any]] = dict()
         self._ignoreHTTPSErrors = ignoreHTTPSErrors
         self._defaultNavigationTimeout = 30000  # milliseconds
+        self._javascriptEnabled = True
         self._coverage = Coverage(client)
+        self._viewport: Optional[Dict] = None
 
         if screenshotTaskQueue is None:
             screenshotTaskQueue = list()
@@ -295,7 +297,29 @@ class Page(EventEmitter):
         :meth:`~pyppeteer.network_manager.Request.response` methods.
         This provides the capability to modify network requests that are made
         by a page.
-        """
+
+        Once request interception is enabled, every request will stall unless
+        it's continued, responded or aborted.
+
+        An example of a native request interceptor that aborts all image
+        requests:
+
+        .. code:: python
+
+            browser = await launch()
+            page = await browser.newPage()
+            await page.setRequestInterception(True)
+
+            async def intercept(request):
+                if request.url.endswith('.png') or request.url.endswith('.jpg'):
+                    await request.abort()
+                else:
+                    await request.continue_()
+
+            page.on('request', lambda req: asyncio.ensure_future(intercept(req)))
+            await page.goto('https://example.com')
+            await browser.close()
+        """  # noqa: E501
         return await self._networkManager.setRequestInterception(value)
 
     async def setOfflineMode(self, enabled: bool) -> None:
@@ -701,9 +725,10 @@ function addPageBinding(bindingName) {
 
     def _onConsoleAPI(self, event: dict) -> None:
         _id = event['executionContextId']
+        context = self._frameManager.executionContextById(_id)
         values: List[JSHandle] = []
         for arg in event.get('args', []):
-            values.append(self._frameManager.createJSHandle(_id, arg))
+            values.append(self._frameManager.createJSHandle(context, arg))
         self._addConsoleMessage(event['type'], values)
 
     def _onBindingCalled(self, event: Dict) -> None:
@@ -1090,6 +1115,9 @@ function addPageBinding(bindingName) {
 
     async def setJavaScriptEnabled(self, enabled: bool) -> None:
         """Set JavaScript enable/disable."""
+        if self._javascriptEnabled == enabled:
+            return
+        self._javascriptEnabled = enabled
         await self._client.send('Emulation.setScriptExecutionDisabled', {
             'value': not enabled,
         })
@@ -1135,8 +1163,8 @@ function addPageBinding(bindingName) {
             await self.reload()
 
     @property
-    def viewport(self) -> dict:
-        """Get viewport as a dictionary.
+    def viewport(self) -> Optional[Dict]:
+        """Get viewport as a dictionary or None.
 
         Fields of returned dictionary is same as :meth:`setViewport`.
         """
@@ -1244,9 +1272,15 @@ function addPageBinding(bindingName) {
 
             # Overwrite clip for full page at all times.
             clip = dict(x=0, y=0, width=width, height=height, scale=1)
-            mobile = self._viewport.get('isMobile', False)
-            deviceScaleFactor = self._viewport.get('deviceScaleFactor', 1)
-            landscape = self._viewport.get('isLandscape', False)
+            if self._viewport is not None:
+                mobile = self._viewport.get('isMobile', False)
+                deviceScaleFactor = self._viewport.get('deviceScaleFactor', 1)
+                landscape = self._viewport.get('isLandscape', False)
+            else:
+                mobile = False
+                deviceScaleFactor = 1
+                landscape = False
+
             if landscape:
                 screenOrientation = dict(angle=90, type='landscapePrimary')
             else:
@@ -1273,7 +1307,7 @@ function addPageBinding(bindingName) {
             await self._client.send(
                 'Emulation.setDefaultBackgroundColorOverride')
 
-        if options.get('fullPage'):
+        if options.get('fullPage') and self._viewport is not None:
             await self.setViewport(self._viewport)
 
         if options.get('encoding') == 'base64':
@@ -1321,6 +1355,11 @@ function addPageBinding(bindingName) {
           * ``right`` (str): Right margin, accepts values labeled with units.
           * ``bottom`` (str): Bottom margin, accepts values labeled with units.
           * ``left`` (str): Left margin, accepts values labeled with units.
+
+        * ``preferCSSPageSize``: Give any CSS ``@page`` size declared in the
+          page priority over what is declared in ``width`` and ``height`` or
+          ``format`` options. Defaults to ``False``, which will scale the
+          content to fit the paper size.
 
         :return: Return generated PDF ``bytes`` object.
 
@@ -1404,6 +1443,7 @@ function addPageBinding(bindingName) {
         marginLeft = convertPrintParameterToInches(marginOptions.get('left')) or 0  # noqa: E501
         marginBottom = convertPrintParameterToInches(marginOptions.get('bottom')) or 0  # noqa: E501
         marginRight = convertPrintParameterToInches(marginOptions.get('right')) or 0  # noqa: E501
+        preferCSSPageSize = options.get('preferCSSPageSize', False)
 
         result = await self._client.send('Page.printToPDF', dict(
             landscape=landscape,
@@ -1418,7 +1458,8 @@ function addPageBinding(bindingName) {
             marginBottom=marginBottom,
             marginLeft=marginLeft,
             marginRight=marginRight,
-            pageRanges=pageRanges
+            pageRanges=pageRanges,
+            preferCSSPageSize=preferCSSPageSize,
         ))
         buffer = base64.b64decode(result.get('data', b''))
         if 'path' in options:

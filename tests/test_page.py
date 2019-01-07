@@ -852,6 +852,19 @@ class TestExposeFunction(BaseTestCase):
         self.assertEqual(result, 36)
 
     @sync
+    async def test_call_from_evaluate_on_document(self):
+        await self.page.goto(self.url + 'empty')
+        called = list()
+
+        def woof():
+            called.append(True)
+
+        await self.page.exposeFunction('woof', woof)
+        await self.page.evaluateOnNewDocument('() => woof()')
+        await self.page.reload()
+        self.assertTrue(called)
+
+    @sync
     async def test_expose_function_other_page(self):
         await self.page.exposeFunction('compute', lambda a, b: a * b)
         await self.page.goto(self.url + 'empty')
@@ -1867,7 +1880,7 @@ class TestEvents(BaseTestCase):
             page = await target.page()
             newPagePromise.set_result(page)
 
-        self.browser.once('targetcreated', page_created)
+        self.context.once('targetcreated', page_created)
         await self.page.evaluate(
             'window["newPage"] = window.open("about:blank")')
         newPage = await newPagePromise
@@ -1879,7 +1892,7 @@ class TestEvents(BaseTestCase):
 
     @sync
     async def test_close_page_close(self):
-        newPage = await self.browser.newPage()
+        newPage = await self.context.newPage()
         closedPromise = asyncio.get_event_loop().create_future()
         newPage.on('close', lambda: closedPromise.set_result(True))
         await newPage.close()

@@ -1,6 +1,16 @@
 History
 =======
 
+## Version 0.0.26 (next version)
+
+* Add `$PYPPETEER_NO_PROGRESS_BAR` environment variable
+* `pyppeteer.defaultArgs` now accepts that help infer chromium command-line flags.
+* `pyppeteer.launch()` argument `ignoreDefaultArgs` now accepts a list of flags to ignore.
+* `Page.type()` now supports typing emoji
+* `Page.pdf()` accepts a new argument `preferCSSPageSize`
+* Add new option `defaultViewport` to `launch()` and `connect()`
+* Add `BrowserContext.pages()` method
+
 ## Version 0.0.25 (2018-09-27)
 
 * Fix miss-spelled methods and functions
