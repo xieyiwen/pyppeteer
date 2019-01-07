@@ -13,15 +13,7 @@ from .base import BaseTestCase
 from .utils import waitEvent
 
 
-class BrowserBaseTestCase(BaseTestCase):
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
-
-class TestBrowserContext(BrowserBaseTestCase):
+class TestBrowserContext(BaseTestCase):
     @sync
     async def test_default_context(self):
         self.assertEqual(len(self.browser.browserContexts), 1)
@@ -44,13 +36,12 @@ class TestBrowserContext(BrowserBaseTestCase):
 
     @sync
     async def test_close_all_targets_once(self):
-        self.assertEqual(len(await self.browser.pages()), 1)
+        self.assertEqual(len(await self.browser.pages()), 2)
         context = await self.browser.createIncognitoBrowserContext()
         await context.newPage()
-        self.assertEqual(len(await self.browser.pages()), 2)
-        self.assertEqual(len(await context.pages()), 1)
+        self.assertEqual(len(await self.browser.pages()), 3)
         await context.close()
-        self.assertEqual(len(await self.browser.pages()), 1)
+        self.assertEqual(len(await self.browser.pages()), 2)
 
     @sync
     async def test_window_open_use_parent_tab_context(self):

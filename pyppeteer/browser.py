@@ -34,13 +34,13 @@ class Browser(EventEmitter):
     )
 
     def __init__(self, connection: Connection, contextIds: List[str],
-                 ignoreHTTPSErrors: bool, defaultViewport: Optional[Dict],
+                 ignoreHTTPSErrors: bool, setDefaultViewport: bool,
                  process: Optional[Popen] = None,
                  closeCallback: Callable[[], Awaitable[None]] = None,
                  **kwargs: Any) -> None:
         super().__init__()
         self._ignoreHTTPSErrors = ignoreHTTPSErrors
-        self._defaultViewport = defaultViewport
+        self._setDefaultViewport = setDefaultViewport
         self._process = process
         self._screenshotTaskQueue: List = []
         self._connection = connection
@@ -127,13 +127,13 @@ class Browser(EventEmitter):
 
     @staticmethod
     async def create(connection: Connection, contextIds: List[str],
-                     ignoreHTTPSErrors: bool, defaultViewport: Optional[Dict],
+                     ignoreHTTPSErrors: bool, appMode: bool,
                      process: Optional[Popen] = None,
                      closeCallback: Callable[[], Awaitable[None]] = None,
                      **kwargs: Any) -> 'Browser':
         """Create browser object."""
-        browser = Browser(connection, contextIds, ignoreHTTPSErrors,
-                          defaultViewport, process, closeCallback)
+        browser = Browser(connection, contextIds, ignoreHTTPSErrors, appMode,
+                          process, closeCallback)
         await connection.send('Target.setDiscoverTargets', {'discover': True})
         return browser
 
@@ -151,7 +151,7 @@ class Browser(EventEmitter):
             context,
             lambda: self._connection.createSession(targetInfo),
             self._ignoreHTTPSErrors,
-            self._defaultViewport,
+            self._setDefaultViewport,
             self._screenshotTaskQueue,
             self._connection._loop,
         )
@@ -222,14 +222,13 @@ class Browser(EventEmitter):
 
         Non visible pages, such as ``"background_page"``, will not be listed
         here. You can find then using :meth:`pyppeteer.target.Target.page`.
-
-        In case of multiple browser contexts, this method will return a list
-        with all the pages in all browser contexts.
         """
-        # Using asyncio.gather is better for performance
-        pages: List[Page] = list()
-        for context in self.browserContexts:
-            pages.extend(await context.pages())
+        pages = []
+        for target in self.targets():
+            if target.type == 'page':
+                page = await target.page()
+                if page:
+                    pages.append(page)
         return pages
 
     async def version(self) -> str:
@@ -303,21 +302,6 @@ class BrowserContext(EventEmitter):
             if target.browserContext == self:
                 targets.append(target)
         return targets
-
-    async def pages(self) -> List[Page]:
-        """Return list of all open pages.
-
-        Non-visible pages, such as ``"background_page"``, will not be listed
-        here. You can find them using :meth:`pyppeteer.target.Target.page`.
-        """
-        # Using asyncio.gather is better for performance
-        pages = []
-        for target in self.targets():
-            if target.type == 'page':
-                page = await target.page()
-                if page:
-                    pages.append(page)
-        return pages
 
     def isIncognite(self) -> bool:
         """[Deprecated] Miss spelled method.

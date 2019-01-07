@@ -23,8 +23,6 @@ createincognitobrowsercontext
 csp
 css
 ctrl
-customargs
-defaultargs
 defaultdict
 devtool
 devtools
@@ -36,7 +34,6 @@ dpr
 dumpio
 elementhandle
 emulatemedia
-endswith
 env
 eval
 evaluatehandle
@@ -48,13 +45,11 @@ html
 http
 https
 iframe
-ignoredefaultargs
 innertext
 internetdisconnected
 ip
 isinstance
 jpeg
-jpg
 js
 json
 jsonized
@@ -100,7 +95,6 @@ screenshots
 scrollable
 setbypasscsp
 setextrahttpheaders
-setrequestinterception
 ssl
 startcsscoverage
 startjscoverage
