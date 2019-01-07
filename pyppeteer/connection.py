@@ -191,7 +191,7 @@ class CDPSession(EventEmitter):
     * protocol events can be subscribed to with :meth:`on` method.
 
     Documentation on DevTools Protocol can be found
-    `here <https://chromedevtools.github.io/devtools-protocol/>`__.
+    `here <https://chromedevtools.github.io/devtools-protocol/>`_.
     """
 
     def __init__(self, connection: Union[Connection, 'CDPSession'],

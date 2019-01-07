@@ -10,10 +10,7 @@ class TestJSCoverage(BaseTestCase):
     @sync
     async def test_js_coverage(self):
         await self.page.coverage.startJSCoverage()
-        await self.page.goto(
-            self.url + 'static/jscoverage/simple.html',
-            waitUntil='networkidle0',
-        )
+        await self.page.goto(self.url + 'static/jscoverage/simple.html')
         coverage = await self.page.coverage.stopJSCoverage()
         self.assertEqual(len(coverage), 1)
         self.assertIn('/jscoverage/simple.html', coverage[0]['url'])

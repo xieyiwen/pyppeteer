@@ -21,9 +21,10 @@ class TestTarget(BaseTestCase):
 
     @sync
     async def test_return_all_pages(self):
-        pages = await self.context.pages()
-        self.assertEqual(len(pages), 1)
+        pages = await self.browser.pages()
+        self.assertEqual(len(pages), 2)
         self.assertIn(self.page, pages)
+        self.assertNotEqual(pages[0], pages[1])
 
     @sync
     async def test_browser_target(self):
@@ -42,7 +43,7 @@ class TestTarget(BaseTestCase):
     @sync
     async def test_report_new_page(self):
         otherPagePromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetcreated',
+        self.browser.once('targetcreated',
                           lambda target: otherPagePromise.set_result(target))
         await self.page.evaluate(
             'url => window.open(url)',
@@ -55,7 +56,7 @@ class TestTarget(BaseTestCase):
             'Hello world')
         self.assertTrue(await otherPage.J('body'))
 
-        pages = await self.context.pages()
+        pages = await self.browser.pages()
         self.assertIn(self.page, pages)
         self.assertIn(otherPage, pages)
 
@@ -65,12 +66,12 @@ class TestTarget(BaseTestCase):
             page = await target.page()
             closePagePromise.set_result(page)
 
-        self.context.once('targetdestroyed',
+        self.browser.once('targetdestroyed',
                           lambda t: asyncio.ensure_future(get_close_page(t)))
         await otherPage.close()
         self.assertEqual(await closePagePromise, otherPage)
 
-        pages = await self.context.pages()
+        pages = await self.browser.pages()
         self.assertIn(self.page, pages)
         self.assertNotIn(otherPage, pages)
 
@@ -78,7 +79,7 @@ class TestTarget(BaseTestCase):
     async def test_report_service_worker(self):
         await self.page.goto(self.url + 'empty')
         createdTargetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetcreated',
+        self.browser.once('targetcreated',
                           lambda t: createdTargetPromise.set_result(t))
 
         await self.page.goto(self.url + 'static/serviceworkers/empty/sw.html')
@@ -88,7 +89,7 @@ class TestTarget(BaseTestCase):
             createdTarget.url, self.url + 'static/serviceworkers/empty/sw.js')
 
         destroyedTargetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetdestroyed',
+        self.browser.once('targetdestroyed',
                           lambda t: destroyedTargetPromise.set_result(t))
         await self.page.evaluate(
             '() => window.registrationPromise.then(reg => reg.unregister())')
@@ -100,7 +101,7 @@ class TestTarget(BaseTestCase):
         await self.page.goto(self.url + 'empty')
 
         changedTargetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetchanged',
+        self.browser.once('targetchanged',
                           lambda t: changedTargetPromise.set_result(t))
         await self.page.goto('http://127.0.0.1:{}/'.format(self.port))
         changedTarget = await changedTargetPromise
@@ -108,7 +109,7 @@ class TestTarget(BaseTestCase):
                          'http://127.0.0.1:{}/'.format(self.port))
 
         changedTargetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetchanged',
+        self.browser.once('targetchanged',
                           lambda t: changedTargetPromise.set_result(t))
         await self.page.goto(self.url + 'empty')
         changedTarget = await changedTargetPromise
@@ -121,18 +122,18 @@ class TestTarget(BaseTestCase):
         def listener(target):
             changedTargets.append(target)
 
-        self.context.on('targetchanged', listener)
+        self.browser.on('targetchanged', listener)
 
         targetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetcreated',
+        self.browser.once('targetcreated',
                           lambda t: targetPromise.set_result(t))
-        newPagePromise = asyncio.ensure_future(self.context.newPage())
+        newPagePromise = asyncio.ensure_future(self.browser.newPage())
         target = await targetPromise
         self.assertEqual(target.url, 'about:blank')
 
         newPage = await newPagePromise
         targetPromise2 = asyncio.get_event_loop().create_future()
-        self.context.once('targetcreated',
+        self.browser.once('targetcreated',
                           lambda t: targetPromise2.set_result(t))
         evaluatePromise = asyncio.ensure_future(
             newPage.evaluate('window.open("about:blank")'))
@@ -142,7 +143,7 @@ class TestTarget(BaseTestCase):
         await newPage.close()
 
         self.assertFalse(changedTargets)
-        self.context.remove_listener('targetchanged', listener)
+        self.browser.remove_listener('targetchanged', listener)
 
         # cleanup
         await (await target2.page()).close()
@@ -156,7 +157,7 @@ class TestTarget(BaseTestCase):
     async def test_opener(self):
         await self.page.goto(self.url + 'empty')
         targetPromise = asyncio.get_event_loop().create_future()
-        self.context.once('targetcreated',
+        self.browser.once('targetcreated',
                           lambda target: targetPromise.set_result(target))
         await self.page.goto(self.url + 'static/popup/window-open.html')
         createdTarget = await targetPromise

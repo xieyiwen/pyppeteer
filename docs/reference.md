@@ -27,18 +27,14 @@ Environment Variables
   like pyppeteer to use. Default value can be checked by
   ``pyppeteer.__chromium_revision__``.
 
-* ``$PYPPETEER_NO_PROGRESS_BAR``: Suppress showing progress bar in chromium
-  download process. Acceptable values are ``1`` or ``true`` (case-insensitive).
 
+Launcher
+--------
 
-Pyppeteer Main Module
----------------------
-
-.. currentmodule:: pyppeteer
+.. currentmodule:: pyppeteer.launcher
 
 .. autofunction:: launch
 .. autofunction:: connect
-.. autofunction:: defaultArgs
 .. autofunction:: executablePath
 
 Browser Class
@@ -164,9 +160,9 @@ Response Class
 Target Class
 ------------
 
-.. currentmodule:: pyppeteer.target
+.. currentmodule:: pyppeteer.browser
 
-.. autoclass:: pyppeteer.target.Target
+.. autoclass:: pyppeteer.browser.Target
    :members:
 
 CDPSession Class
