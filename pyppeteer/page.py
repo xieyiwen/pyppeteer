@@ -860,8 +860,7 @@ function addPageBinding(bindingName) {
         helper.removeEventListeners(eventListeners)
         error = result[0].pop().exception()  # type: ignore
         if error:
-            if not isinstance(error, pyTimeoutError):
-                raise error
+            raise error
 
         request = requests.get(mainFrame._navigationURL)
         return request.response if request else None
